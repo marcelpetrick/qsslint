@@ -67,10 +67,22 @@ static bool lintStyleSheet(const QString &css, bool isFile, bool syntaxOnly)
         return true;
     } else {
         if (isFile)
+        {
             qWarning().noquote() << QStringLiteral("Invalid stylesheet for %1").arg(css);
+        }
         else
+        {
             qWarning().noquote() << "Invalid stylesheet";
-       return false;
+        }
+
+        auto const errorSymbol = parser.errorSymbol();
+//            qDebug() << errorSymbol.text; // prints full text of the given QSS, but this is not helpful, since newlines are replaced with \r\n
+//            auto split = errorSymbol.text.split("\r\n");
+//            qDebug() << split;
+        qWarning() << "Lexem causing the error: " << errorSymbol.lexem();
+        qWarning() << "\tstart:" << errorSymbol.start << "length:" << errorSymbol.len;
+
+        return false;
     }
 }
 
