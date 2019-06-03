@@ -53,7 +53,7 @@ void noWarningsMessageHandler(QtMsgType t, const QMessageLogContext &context, co
     s_originalMessageHandler(t, context, msg);
 }
 
-static bool lintStyleSheet(const QString &css, bool isFile, bool syntaxOnly)
+static bool lintStyleSheet(const QString &css, bool isFile, bool syntaxOnly, bool verboseErrorMessage = false)
 {
     QCss::Parser parser(css, isFile);
     QCss::StyleSheet ss;
@@ -75,12 +75,25 @@ static bool lintStyleSheet(const QString &css, bool isFile, bool syntaxOnly)
             qWarning().noquote() << "Invalid stylesheet";
         }
 
-        auto const errorSymbol = parser.errorSymbol();
-//            qDebug() << errorSymbol.text; // prints full text of the given QSS, but this is not helpful, since newlines are replaced with \r\n
-//            auto split = errorSymbol.text.split("\r\n");
-//            qDebug() << split;
-        qWarning() << "Lexem causing the error: " << errorSymbol.lexem();
-        qWarning() << "\tstart:" << errorSymbol.start << "length:" << errorSymbol.len;
+        if(verboseErrorMessage)
+        {
+            auto const errorSymbol = parser.errorSymbol();
+            //            qDebug() << errorSymbol.text; // prints full text of the given QSS, but this is not helpful, since newlines are replaced with \r\n
+            //            auto split = errorSymbol.text.split("\r\n");
+            //            qDebug() << split;
+            qWarning() << "Lexem causing the error: " << errorSymbol.lexem();
+            qWarning() << "\tstart:" << errorSymbol.start << "length:" << errorSymbol.len;
+
+            auto const leftString = errorSymbol.text.left(errorSymbol.start);
+            auto const midString = errorSymbol.text.mid(errorSymbol.start, errorSymbol.len);
+            auto const rightString = errorSymbol.text.mid(errorSymbol.start + errorSymbol.len);
+
+            qWarning() << "original length:" << errorSymbol.text.length();
+            qWarning() << "new length:" << leftString.length() << midString.length() << rightString.length();
+            qWarning() << "leftString:" << leftString;
+            qWarning() << "midString:" << midString;
+            qWarning() << "rightString:" << rightString.left(20);
+        }
 
         return false;
     }
@@ -97,6 +110,9 @@ int main(int argv, char** argc)
     parser.addVersionOption();
     QCommandLineOption syntaxOnlyOption(QStringList() << "s" << "syntax-only", QLatin1String("Only validate syntax, not semantics"));
     parser.addOption(syntaxOnlyOption);
+    QCommandLineOption verboseErrorMessageOption(QStringList() << "e" << "verbose-error-message",
+                                                 QLatin1String("Report errors with failing lexem, position and context."));
+    parser.addOption(verboseErrorMessageOption);
 
     parser.addPositionalArgument(QLatin1String("files"), QLatin1String("list of qss files to verify"));
     parser.process(app);
@@ -108,9 +124,10 @@ int main(int argv, char** argc)
     }
 
     const bool isSyntaxOnly = parser.isSet(syntaxOnlyOption);
-    bool success = true;
+    const bool verboseErrorMessage = parser.isSet(verboseErrorMessageOption);
+    bool success{true};
     for (const QString &filename : files) {
-        success &= lintStyleSheet(filename, /*isFile=*/ true, isSyntaxOnly);
+        success &= lintStyleSheet(filename, /*isFile=*/ true, isSyntaxOnly, verboseErrorMessage);
     }
 
     return success ? 0 : 1;
